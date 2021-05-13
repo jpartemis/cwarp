@@ -24,6 +24,22 @@ def main():
     st.sidebar.image('Artemis.png')
     st.header("CWarp Calculator")
 
+    body = """CWARP, like Sharpe or Sortino ratio, is a number that quantifies the attractiveness of of a prospective asset.
+Like the Sharpe ratio, the more positive the CWARP the more attractive an asset.
+
+Sharpe ratios have the problem that the best portfolio isn't built from assets which have the best Sharpe ratios.
+In fact it is possible that between assets with three sortino ratios $S_a < S_b < S_c$, the best portfolio is built from
+the two weaker assets $S_a, S_b$. Reliance on this simple number has lead to underdiversified, fragile portfolios.
+The whole is not the sum of the parts.
+
+To improve the situation, CWARP $\chi$ measures the attractiveness of a portfolio after an asset is added.
+Here RMDD is the return to max-drawdown ratio, and n and p represent the new and old portfolio respectively :
+"""
+    st.markdown(body)
+    formula = render_latex(r'\chi/100 = \sqrt{ \left( \frac{S_n}{S_p} \right) \left(  \frac{ RMDD_n }{ RMDD_p}  \right) }-1.')
+    st.markdown("""Using the boxes below, you can calculate CWARP based on your own portfolio for prospective assets,
+    so long as a data provider has history on your holdings. Just edit the example entries.""")
+
     start_date = st.sidebar.date_input("Start Date", datetime.date(2007,7,1)).strftime("%Y-%m-%d")
     end_date = st.sidebar.date_input("End Date", datetime.date(2020,12,31)).strftime("%Y-%m-%d")
 
@@ -31,21 +47,33 @@ def main():
     ticker_string = st.text_input("Prospects (comma separated)", ticker_string_)
     ticker_list=ticker_string.replace(' ','').split(',')
 
-    replacement_port_tik=['spy','ief']
-    replacement_port_w=[.60,.40]
+    port_string_ = ".6, spy, .4, ief"
+    port_string = st.text_input("Portfolio (comma separated, fraction_1, symbol_1, fraction_2, symbol_2... )", port_string_)
+    port_list=port_string.replace(' ','').split(',')
+    replacement_port_tik=[]
+    replacement_port_w=[]
+    replacement_port_list = []
+    for i in range(len(port_list)//2):
+        replacement_port_w.append(float(port_list[2*i]))
+        replacement_port_tik.append(port_list[2*i+1])
+        print(f"X{replacement_port_tik[-1]}X")
+        with st.spinner("Pulling data..."):
+            D = retrieve_yhoo_data(replacement_port_tik[-1], start_date, end_date)
+            replacement_port_list.append(D*replacement_port_w[-1])
 
-    formula = render_latex(r'\chi = \sqrt{ \left( \frac{S_n}{S_p} \right) \left(  \frac{ RMDD_n }{ RMDD_p}  \right) }')
-
-    replacement_port=(retrieve_yhoo_data('spy')*.60+retrieve_yhoo_data('ief')*.40)
+    replacement_port = replacement_port_list[0]
+    for k in range(1,len(replacement_port_list)):
+        replacement_port += replacement_port_list[k]
     replacement_port_name='Classic 60/40'
+
     replacement_port.name=replacement_port_name
     risk_ret_df=pd.DataFrame(index=['Start_Date','End_Date','CWARP','+Sortino','+Ret_To_MaxDD','Sharpe','Sortino','Max_DD'],columns=ticker_list)
     new_risk_ret_df=pd.DataFrame(index=['Return','Vol','Sharpe','Sortino','Max_DD','Ret_To_MaxDD','CWARP_25%_asset'],columns=ticker_list)
     new_risk_ret_df=new_risk_ret_df.add_suffix('@25% | '+replacement_port.name+'@100%')
     new_risk_ret_df[replacement_port.name]=np.nan
-    prices_df=pd.DataFrame(index=retrieve_yhoo_data(ticker_list[0]).index)
+    prices_df=pd.DataFrame(index=retrieve_yhoo_data(ticker_list[0], start_date, end_date).index)
     for i in range(0,len(ticker_list)):
-        temp_data=retrieve_yhoo_data(ticker_list[i])
+        temp_data=retrieve_yhoo_data(ticker_list[i], start_date, end_date)
         prices_df=pd.merge(prices_df,temp_data, left_index=True, right_index=True)
         risk_ret_df.loc['Start_Date',ticker_list[i]]=min(temp_data.index)
         risk_ret_df.loc['End_Date',ticker_list[i]]=max(temp_data.index)
@@ -85,7 +113,7 @@ def main():
     f = plt.figure(figsize=(10,6))
     plt.scatter(vol_arr, ret_arr, c=cwarp_arr, cmap='winter',label=new_risk_ret_df.columns,alpha=.9)
     plt.colorbar(label='Cole Win Above Replacement Portfolio')
-    plt.title('Efficient Frontier using CWAP', fontsize=15)
+    plt.title('Efficient Frontier using CWARP', fontsize=15)
     plt.xlabel('Downside Volatility',fontsize=15)
     plt.ylabel('Return',fontsize=15)
     plt.scatter(max_sr_vol, max_sr_ret,c='red', s=200) # red dot

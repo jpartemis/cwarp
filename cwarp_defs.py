@@ -133,7 +133,8 @@ def ReturnTable(daily_nav_df,freq='1M'):
     return_df
 
 
-def cole_win_above_replace_port(new_asset, replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+def cole_win_above_replace_port(new_asset, replace_port,
+                                risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
     # Cole Win Above Replacement Portolio: Calculate additive return to unit of risk for a new asset on an existing portfolio
     # new_asset = returns of the asset you are thinking of adding to your portfolio
     # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
