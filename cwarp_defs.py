@@ -10,25 +10,25 @@ yf.pdr_override()
 import pandas as pd
 
 #Risk and Reward Functions##################################################################
-def sharpe_ratio(df,risk_free=0,periodicity=252):
-    risk_free=(1+risk_free)**(1/periodicity)-1
-    dfMean=np.mean(df)-risk_free
+def sharpe_ratio(df,risk_free_rate=0,periodicity=252):
+    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+    dfMean=np.mean(df)-risk_free_rate
     dfSTD=np.std(df)
     dfSharpe=dfMean/dfSTD*np.sqrt(periodicity)
     return dfSharpe
 
-def sortino_ratio(df,risk_free=0,periodicity=252):
+def sortino_ratio(df,risk_free_rate=0,periodicity=252):
     neg_ndx = np.where(df<0)[0]
     dfSTD= np.std(df[neg_ndx])
-    risk_free=(1+risk_free)**(1/periodicity)-1
-    dfMean=np.mean(df)-risk_free
+    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+    dfMean=np.mean(df)-risk_free_rate
     dfSortino=(dfMean/dfSTD)*np.sqrt(periodicity)
     return dfSortino
 
-def return_maxdd_ratio(df,risk_free=0,periodicity=252):
+def return_maxdd_ratio(df,risk_free_rate=0,periodicity=252):
     #drop zero means you will drop all zero values from the calculation
-    risk_free=(1+risk_free)**(1/periodicity)-1
-    dfMean=(1+np.mean(df)-risk_free)**(periodicity)-1
+    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+    dfMean=(1+np.mean(df)-risk_free_rate)**(periodicity)-1
     maxDD=max_dd(df,use_window=False,window=252,return_data=False)
     return dfMean/abs(maxDD)
 
@@ -134,7 +134,11 @@ def ReturnTable(daily_nav_df,freq='1M'):
 
 
 def cole_win_above_replace_port(new_asset, replace_port,
-                                risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+                                risk_free_rate=0,
+                                financing_rate=0,
+                                weight_asset=0.25,
+                                weight_replace_port=1,
+                                periodicity=252):
     # Cole Win Above Replacement Portolio: Calculate additive return to unit of risk for a new asset on an existing portfolio
     # new_asset = returns of the asset you are thinking of adding to your portfolio
     # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
@@ -171,7 +175,12 @@ def cole_win_above_replace_port(new_asset, replace_port,
     CWARP=(((new_port_return_maxdd/replace_port_return_maxdd)*(new_port_sortino/replace_port_sortino))**(1/2)-1)*100
     return CWARP
 
-def cwarp_additive_sortino(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+def cwarp_additive_sortino(new_asset,replace_port,
+                                risk_free_rate=0,
+                                financing_rate=0,
+                                weight_asset=0.25,
+                                weight_replace_port=1,
+                                periodicity=252):
     # new_asset = returns of the asset you are thinking of adding to your portfolio
     # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
     # risk_free_rate = Tbill rate
