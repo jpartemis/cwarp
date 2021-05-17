@@ -273,9 +273,3 @@ def cwarp_new_port_data(new_asset,replace_port,risk_free_rate=0,financing_rate=0
     risk_free_rate=((risk_free_rate+1)**(1/periodicity)-1)
     new_port=(new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
     return new_port
-
-def retrieve_yhoo_data(ticker='spy', start_date = '2007-07-01', end_date = '2020-12-31'):
-    data_hold=yf.Ticker(ticker)
-    price_df=data_hold.history(start=start_date,  end=end_date).Close.pct_change()
-    price_df.name=ticker
-    return price_df
