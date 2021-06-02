@@ -66,12 +66,13 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
     try:
         start_date = st.sidebar.date_input("Start Date", datetime.date(2007,7,1)).strftime("%Y-%m-%d")
         end_date = st.sidebar.date_input("End Date", datetime.date(2020,12,31)).strftime("%Y-%m-%d")
-        weight_asset = st.sidebar.slider('Diversifier Weight', min_value=0.0001, max_value=0.9999, value=.25)
-        risk_free_rate = st.sidebar.slider('Risk-Free Rate (annualized)', min_value=0.0, max_value=0.2, value=0.027)
-        financing_rate = st.sidebar.slider('Financing Rate (annualized)', min_value=0.0, max_value=0.2, value=0.0)
+        weight_asset = st.sidebar.slider('Diversifier Weight', min_value=0.0001, max_value=0.9999, value=.25, step=0.01)
+        weight_replace_port = st.sidebar.slider('Replacement Portfolio Weight', min_value=0.0001, max_value=1.0000, value=1.00, step=0.01)
+        risk_free_rate = st.sidebar.slider('Risk-Free Rate (annualized)', min_value=0.0, max_value=0.2, value=0.005, step=0.001, format='%.3f')
+        financing_rate = st.sidebar.slider('Financing Rate (annualized)', min_value=0.0, max_value=0.2, value=0.01)
         replacement_port_name = st.sidebar.text_input("Replacement Portfolio Name", "Plain 60/40")
 
-        ticker_string_ = "qqq, lqd, hyg, tlt, ief, shy, gld, efa, eem, iyr, xle, xlf"
+        ticker_string_ = "qqq, lqd, hyg, tlt, ief, shy, gld, slv, efa, eem, iyr, xle, xlk, xlf"
         ticker_string = st.text_input("Prospective Portfolio Diversifiers (comma separated)", ticker_string_)
         ticker_list=ticker_string.replace(' ','').split(',')
 
@@ -88,14 +89,16 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
                 D = retrieve_yhoo_data(replacement_port_tik[-1], start_date, end_date)
                 replacement_port_list.append(D)
 
-        replacement_port = replacement_port_list[0]
+        replacement_port = replacement_port_list[0]*(replacement_port_w[0]/sum(replacement_port_w))
         for k in range(1,len(replacement_port_list)):
             replacement_port += replacement_port_list[k]*(replacement_port_w[k]/sum(replacement_port_w))
+        # with st.spinner("Pulling data..."):
+        #     replacement_port=sum([retrieve_yhoo_data(sym, start_date, end_date)*replacement_port_w[i] for i, sym in enumerate(replacement_port_tik)])
 
         replacement_port.name=replacement_port_name
         risk_ret_df=pd.DataFrame(index=['Start_Date','End_Date','CWARP','+Sortino','+Ret_To_MaxDD','Sharpe','Sortino','Max_DD'],columns=ticker_list)
         new_risk_ret_df=pd.DataFrame(index=['Return','Vol','Sharpe','Sortino','Max_DD','Ret_To_MaxDD',f'CWARP_{round(100*weight_asset)}%_asset'],columns=ticker_list)
-        new_risk_ret_df=new_risk_ret_df.add_suffix(f'@{round(100*weight_asset)}% | '+replacement_port.name+'@100%')
+        new_risk_ret_df=new_risk_ret_df.add_suffix(f'@{round(100*weight_asset)}% | '+replacement_port.name+f'{round(100*weight_replace_port)}%')
         new_risk_ret_df[replacement_port.name]=np.nan
         prices_df=pd.DataFrame(index=retrieve_yhoo_data(ticker_list[0], start_date, end_date).index)
 
@@ -104,52 +107,66 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         for i in range(0,len(ticker_list)):
             temp_data=retrieve_yhoo_data(ticker_list[i], start_date, end_date)
             prices_df=pd.merge(prices_df,temp_data, left_index=True, right_index=True)
-            risk_ret_df.loc['Start_Date',ticker_list[i]]=min(temp_data.index)
-            risk_ret_df.loc['End_Date',ticker_list[i]]=max(temp_data.index)
+            risk_ret_df.loc['Start_Date',ticker_list[i]]=min(temp_data.index).date()
+            risk_ret_df.loc['End_Date',ticker_list[i]]=max(temp_data.index).date()
             risk_ret_df.loc['CWARP',ticker_list[i]]=cole_win_above_replace_port(new_asset=temp_data, replace_port=replacement_port,
                                                                                     risk_free_rate = risk_free_rate,
                                                                                     financing_rate = financing_rate,
-                                                                                    weight_asset = weight_asset
-                                                                                    )
+                                                                                    weight_asset = weight_asset,
+                                                                                    weight_replace_port = weight_replace_port,
+                                                                                    periodicity=252)
             risk_ret_df.loc['+Sortino',ticker_list[i]]=cwarp_additive_sortino(new_asset=temp_data, replace_port=replacement_port,
                                                                                             risk_free_rate = risk_free_rate,
                                                                                             financing_rate = financing_rate,
-                                                                                            weight_asset = weight_asset)
+                                                                                            weight_asset = weight_asset,
+                                                                                            weight_replace_port = weight_replace_port,
+                                                                                            periodicity=252)
             risk_ret_df.loc['+Ret_To_MaxDD',ticker_list[i]]=cwarp_additive_ret_maxdd(new_asset=temp_data, replace_port=replacement_port,
                                                                                             risk_free_rate = risk_free_rate,
                                                                                             financing_rate = financing_rate,
-                                                                                            weight_asset = weight_asset)
-            risk_ret_df.loc['Sharpe',ticker_list[i]]=sharpe_ratio(temp_data, risk_free_rate = risk_free_rate)
-            risk_ret_df.loc['Sortino',ticker_list[i]]=sortino_ratio(temp_data, risk_free_rate = risk_free_rate)
+                                                                                            weight_asset = weight_asset,
+                                                                                            weight_replace_port = weight_replace_port,
+                                                                                            periodicity=252)
+            risk_ret_df.loc['Sharpe',ticker_list[i]]=sharpe_ratio(temp_data, risk_free = risk_free_rate, periodicity=252)
+            risk_ret_df.loc['Sortino',ticker_list[i]]=sortino_ratio(temp_data, risk_free = risk_free_rate, periodicity=252)
             risk_ret_df.loc['Max_DD',ticker_list[i]]=max_dd(temp_data)
             new_risk_ret_df.loc['Return',new_risk_ret_df.columns[i]]=cwarp_port_return(new_asset=temp_data,replace_port=replacement_port,
                                                                                                     risk_free_rate = risk_free_rate,
                                                                                                     financing_rate = financing_rate,
-                                                                                                    weight_asset = weight_asset)
+                                                                                                    weight_asset = weight_asset,
+                                                                                                    weight_replace_port = weight_replace_port,
+                                                                                                    periodicity = 252)
             new_risk_ret_df.loc['Vol',new_risk_ret_df.columns[i]]=cwarp_port_risk(new_asset=temp_data,replace_port=replacement_port,
                                                                                                     risk_free_rate = risk_free_rate,
                                                                                                     financing_rate = financing_rate,
-                                                                                                    weight_asset = weight_asset)
+                                                                                                    weight_asset = weight_asset,
+                                                                                                    weight_replace_port = weight_replace_port,
+                                                                                                    periodicity=252)
             cnpd = cwarp_new_port_data(new_asset=temp_data,replace_port=replacement_port, risk_free_rate = risk_free_rate,
                                                                                                     financing_rate = financing_rate,
-                                                                                                    weight_asset = weight_asset)
+                                                                                                    weight_asset = weight_asset,
+                                                                                                    weight_replace_port = weight_replace_port,
+                                                                                                    periodicity = 252)
             new_ports[ticker_list[i]] = cnpd
-            new_risk_ret_df.loc['Sharpe',new_risk_ret_df.columns[i]]=sharpe_ratio(cnpd.copy(), risk_free_rate = risk_free_rate)
-            new_risk_ret_df.loc['Sortino',new_risk_ret_df.columns[i]]=sortino_ratio(cnpd.copy(), risk_free_rate = risk_free_rate)
+            new_risk_ret_df.loc['Sharpe',new_risk_ret_df.columns[i]]=sharpe_ratio(cnpd.copy(), risk_free = risk_free_rate, periodicity=252)
+            new_risk_ret_df.loc['Sortino',new_risk_ret_df.columns[i]]=sortino_ratio(cnpd.copy(), risk_free = risk_free_rate, periodicity=252)
             new_risk_ret_df.loc['Max_DD',new_risk_ret_df.columns[i]]=max_dd(cnpd.copy())
-            new_risk_ret_df.loc['Ret_To_MaxDD',new_risk_ret_df.columns[i]]=return_maxdd_ratio(cnpd.copy(), risk_free_rate = risk_free_rate)
+            new_risk_ret_df.loc['Ret_To_MaxDD',new_risk_ret_df.columns[i]]=return_maxdd_ratio(cnpd.copy(), risk_free = risk_free_rate, periodicity=252)
             new_risk_ret_df.loc[f'CWARP_{round(100*weight_asset)}%_asset',new_risk_ret_df.columns[i]]=risk_ret_df.loc['CWARP',ticker_list[i]]
 
-        new_risk_ret_df.loc['Return',[replacement_port_name]]=(replacement_port.mean()+1)**252-1
-        new_risk_ret_df.loc['Vol',[replacement_port_name]]=replacement_port.std()*np.sqrt(252)
-        new_risk_ret_df.loc['Sharpe',[replacement_port_name]]=sharpe_ratio(replacement_port, risk_free_rate = risk_free_rate)
-        new_risk_ret_df.loc['Sortino',[replacement_port_name]]=sortino_ratio(replacement_port, risk_free_rate = risk_free_rate)
+        new_risk_ret_df.loc['Return',[replacement_port_name]]=annualized_return(replacement_port, periodicity=252)
+        new_risk_ret_df.loc['Vol',[replacement_port_name]]=target_downside_deviation(replacement_port, MAR=0)*np.sqrt(252)
+        new_risk_ret_df.loc['Sharpe',[replacement_port_name]]=sharpe_ratio(replacement_port, risk_free = risk_free_rate, periodicity=252)
+        new_risk_ret_df.loc['Sortino',[replacement_port_name]]=sortino_ratio(replacement_port, risk_free = risk_free_rate, periodicity=252)
         new_risk_ret_df.loc['Max_DD',[replacement_port_name]]=max_dd(replacement_port)
-        new_risk_ret_df.loc['Ret_To_MaxDD',[replacement_port_name]]=return_maxdd_ratio(replacement_port, risk_free_rate = risk_free_rate)
+        new_risk_ret_df.loc['Ret_To_MaxDD',[replacement_port_name]]=return_maxdd_ratio(replacement_port, risk_free = risk_free_rate, periodicity=252)
+        new_risk_ret_df.loc[f'CWARP_{round(100*weight_asset)}%_asset',[replacement_port_name]] = cole_win_above_replace_port(new_asset=replacement_port, replace_port=replacement_port, risk_free_rate=risk_free_rate, financing_rate=financing_rate,
+                            weight_asset=weight_asset, weight_replace_port=weight_replace_port, periodicity=252)
         first_col = new_risk_ret_df.pop(replacement_port_name)
         new_risk_ret_df.insert(0, replacement_port_name, first_col)
-        st.write(risk_ret_df)
-        st.write(new_risk_ret_df)
+        # display dataframes
+        st.write(risk_ret_df.sort_values(by='CWARP', axis=1, ascending=False).style.set_precision(3))
+        st.write(new_risk_ret_df.sort_values(by='Sharpe', axis=1, ascending=False).style.set_precision(3))
         vol_arr=new_risk_ret_df.loc['Vol',new_risk_ret_df.columns[1:]]
         ret_arr=new_risk_ret_df.loc['Return',new_risk_ret_df.columns[1:]]
         sharpe_arr=new_risk_ret_df.loc['Sharpe',new_risk_ret_df.columns[1:]]

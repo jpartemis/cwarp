@@ -10,39 +10,114 @@ yf.pdr_override()
 import pandas as pd
 
 #Risk and Reward Functions##################################################################
-def sharpe_ratio(df,risk_free_rate=0,periodicity=252):
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
-    dfMean=np.mean(df)-risk_free_rate
-    dfSTD=np.std(df)
+def sharpe_ratio(df,risk_free=0,periodicity=252):
+    """df - asset return series, e.g. daily returns based on daily close prices of asset
+   risk_free - annualized risk free rate (default is assumed to be 0)
+   periodicity - number of periods at desired frequency in one year
+                e.g. 252 business days in 1 year (default),
+                12 months in 1 year,
+                52 weeks in 1 year etc."""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # convert annualized risk free rate into appropriate value for provided frequency of asset return series (df)
+    risk_free=(1+risk_free)**(1/periodicity)-1
+    # calculate mean excess return based on return series provided
+    dfMean=np.nanmean(df)-risk_free
+    # calculate standard deviation of return series
+    dfSTD=np.nanstd(df)
+    # calculate Sharpe Ratio = Mean excess return / Std of returns * sqrt(periodicity)
     dfSharpe=dfMean/dfSTD*np.sqrt(periodicity)
     return dfSharpe
 
-def sortino_ratio(df,risk_free_rate=0,periodicity=252):
-    neg_ndx = np.where(df<0)[0]
-    dfSTD= np.std(df[neg_ndx])
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
-    dfMean=np.mean(df)-risk_free_rate
-    dfSortino=(dfMean/dfSTD)*np.sqrt(periodicity)
+def target_downside_deviation(df, MAR=0, periodicity=252):
+    """df - asset return series, e.g. daily returns based on daily close prices of asset
+    minimum acceptable return (MAR) - value is subtracted from returns before root-mean-square calculation to obtain target downside deviation (TDD)"""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # TDD step 1: subtract mininum acceptable return (MAR) from period returns provided in df
+    df_ = df - MAR
+    # TDD step 2: zero out positive excess returns and calculate root-mean-square for resulting values
+    df2 = np.where(df_<0, df_, 0)
+    tdd = np.sqrt(np.nanmean(df2**2))
+    return tdd
+
+def sortino_ratio(df,risk_free=0, periodicity=252, include_risk_free_in_vol=False):
+    """df - asset return series, e.g. daily returns based on daily close prices of asset
+   risk_free - annualized risk free rate (default is assumed to be 0). Note: risk free rate is assumed to be the target return/minimum acceptable return (MAR)
+               used in calculating both the mean excess return (numerator of Sortino ratio) and determining target downside deviation (TDD, the denominator of Sortino)
+   periodicity - number of periods at desired frequency in one year
+                e.g. 252 business days in 1 year (default),
+                12 months in 1 year,
+                52 weeks in 1 year etc."""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # convert annualized risk free rate into appropriate value for provided frequency of asset return series (df)
+    risk_free=(1+risk_free)**(1/periodicity)-1
+    # calculate mean excess return based on return series provided
+    dfMean=np.nanmean(df)-risk_free
+    # calculate target downside deviation (TDD)
+    # assume risk free rate is MAR
+    if include_risk_free_in_vol==True: MAR=risk_free
+    else: MAR=0
+    tdd = target_downside_deviation(df, MAR=MAR)
+    # calculate Sortino Ratio = Mean excess return / TDD * sqrt(periodicity)
+    dfSortino=(dfMean/tdd)*np.sqrt(periodicity)
     return dfSortino
 
-def return_maxdd_ratio(df,risk_free_rate=0,periodicity=252):
-    #drop zero means you will drop all zero values from the calculation
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
-    dfMean=(1+np.mean(df)-risk_free_rate)**(periodicity)-1
-    maxDD=max_dd(df,use_window=False,window=252,return_data=False)
-    return dfMean/abs(maxDD)
-
-def annualized_return(returns,periodicity=252):
-    """Assumes returns is a pandas Series"""
-    #start_date=returns.index[0]
-    #end_date=returns.index[-1]
-    #difference_in_years = (end_date-start_date).days/days_in_year
-    difference_in_years = len(returns)/periodicity
-    r = np.cumprod(returns+1.)
-    start_NAV=1
+def annualized_return(df,periodicity=252):
+    """df - asset return series, e.g. returns based on daily close prices of asset
+   periodicity - number of periods at desired frequency in one year
+                e.g. 252 business days in 1 year (default),
+                12 months in 1 year,
+                52 weeks in 1 year etc."""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # how many years of returns data is provided in df
+    difference_in_years = len(df)/periodicity
+    # starting net asset value / NAV (assumed to be 1) and cumulative returns (r) over time period provided in returns data
+    start_NAV=1.0
+    r = np.nancumprod(df+start_NAV)
+    # end NAV based on final cumulative return
     end_NAV=r[-1]
-    AnnualReturn = (1 + (end_NAV - 1) / 1)** (1 / difference_in_years) - 1
+    # determine annualized return
+    AnnualReturn = end_NAV**(1 / difference_in_years) - 1
     return AnnualReturn
+
+def max_dd(df, return_data=False):
+    """df - asset return series, e.g. returns based on daily close prices of asset
+    return_data - boolean value to determine if drawdown values over the return data time period should be return, instead of max DD"""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # calculate cumulative returns
+    start_NAV = 1
+    r = np.nancumprod(df+start_NAV)
+    # calculate cumulative max returns (i.e. keep track of peak cumulative return up to that point in time, despite actual cumulative return at that point in time)
+    peak_r = np.maximum.accumulate(r)
+    # determine drawdowns relative to peak cumulative return achieved up to each point in time
+    dd = (r - peak_r) / peak_r
+    # return drawdown values over time period if return_data is set to True, otherwise return max drawdown which will be a positive number
+    if return_data==True:
+        out = dd
+    else:
+        out = np.abs(np.nanmin(dd))
+    return out
+
+def return_maxdd_ratio(df,risk_free=0,periodicity=252):
+    """df - asset return series, e.g. returns based on daily close prices of asset
+   risk_free - annualized risk free rate (default is assumed to be 0)
+   periodicity - number of periods at desired frequency in one year
+                e.g. 252 business days in 1 year (default),
+                12 months in 1 year,
+                52 weeks in 1 year etc."""
+    # convert return series to numpy array (in case Pandas series is provided)
+    df = np.asarray(df)
+    # convert annualized risk free rate into appropriate value for provided frequency of asset return series (df)
+    risk_free=(1+risk_free)**(1/periodicity)-1
+    # determine annualized return to be used in numerator of return to max drawdown (RMDD) calculation
+    AnnualReturn = annualized_return(df, periodicity=periodicity)
+    # determine max drawdown to be used in the denominator of RMDD calculation
+    maxDD=max_dd(df,return_data=False)
+    return (AnnualReturn-risk_free)/abs(maxDD)
 
 def avg_positive(ret,dropzero=1):
     if dropzero>0:
@@ -69,20 +144,6 @@ def win_pct(ret,dropzero=1):
         win=len(np.where(ret>=0)[0])
         total=len(ret)
     return (win/total)
-
-def max_dd(pct_df,use_window=False,window=252,return_data=False):
-    #calculates the maximum drawdown for the strategy cumulatively or over a rolling window period
-    #use_window initiates rolling period, otherwise is cumulative
-    #return data provides the raw datastream rather than the min
-    if use_window==False:
-        out=((((pct_df + 1).cumprod()-(pct_df + 1).cumprod().cummax())/(pct_df + 1).cumprod().cummax()).dropna())
-    else:
-        out=(((pct_df + 1).cumprod()-(pct_df + 1).cumprod().rolling(window).max())/(pct_df + 1).cumprod().rolling(window).max()).dropna()
-    if return_data==True:
-        out = out
-    else:
-        out = min(out)
-    return out
 
 def kelly(df,dropzero=0):
     if dropzero==1: df = df[(df!= 0)]
@@ -133,84 +194,56 @@ def ReturnTable(daily_nav_df,freq='1M'):
     return_df
 
 
-def cole_win_above_replace_port(new_asset, replace_port,
-                                risk_free_rate=0,
-                                financing_rate=0,
-                                weight_asset=0.25,
-                                weight_replace_port=1,
-                                periodicity=252):
-    # Cole Win Above Replacement Portolio: Calculate additive return to unit of risk for a new asset on an existing portfolio
-    # new_asset = returns of the asset you are thinking of adding to your portfolio
-    # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
-    # risk_free_rate = Tbill rate
-    # financing_rate = portfolio margin/borrowing cost to layer new asset on top of prevailing portfolio
-    # weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
-    # weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
-    # periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count
-
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+def cole_win_above_replace_port(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+    """Cole Win Above Replacement Portolio (CWARP): Total score to evaluate whether any new investment improves or hurts the return to risk of your total portfolio.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate (annualized)
+    financing_rate = portfolio margin/borrowing cost (annualized) to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annualized financing rate into appropriate value for provided periodicity
+    # risk_free_rate will be converted appropriately in respective Sortino and RMDD calcs
     financing_rate=(1+financing_rate)**(1/periodicity)-1
 
-    replace_port_ex_rf=replace_port-risk_free_rate
-    new_port_returns_ex_rf=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)-risk_free_rate
-    new_port=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)
-
     #Calculate Replacement Portfolio Sortino Ratio
-    neg_ndx = np.where(replace_port<0)[0]
-    replace_port_sortino=np.mean(replace_port_ex_rf)/(np.std(replace_port[neg_ndx]))*np.sqrt(periodicity)
+    replace_port_sortino = sortino_ratio(replace_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Calculate Replacement Portfolio Return to Max Drawdown
-    maxdd_replace_port=min((((replace_port + 1).cumprod()-(replace_port + 1).cumprod().cummax())/(replace_port + 1).cumprod().cummax()).dropna())
-    replace_port_return_maxdd= ((1+np.mean(replace_port_ex_rf))**(periodicity)-1)/abs(maxdd_replace_port)
+    replace_port_return_maxdd = return_maxdd_ratio(replace_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Calculate New Portfolio Sortino Ratio
-    neg_ndx_new = np.where(new_port<0)[0]
-    new_port_sortino=np.mean(new_port_returns_ex_rf)/(np.std(new_port[neg_ndx_new]))*np.sqrt(periodicity)
+    new_port = (new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
+    new_port_sortino = sortino_ratio(new_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Calculate New Portfolio Return to Max Drawdown
-    maxdd_new_port=min((((new_port + 1).cumprod()-(new_port + 1).cumprod().cummax())/(new_port + 1).cumprod().cummax()).dropna())
-    new_port_return_maxdd= ((1+np.mean(new_port_returns_ex_rf))**(periodicity)-1)/abs(maxdd_new_port)
+    new_port_return_maxdd = return_maxdd_ratio(new_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Final CWARP calculation
-    CWARP=(((new_port_return_maxdd/replace_port_return_maxdd)*(new_port_sortino/replace_port_sortino))**(1/2)-1)*100
+    CWARP = ((new_port_return_maxdd/replace_port_return_maxdd*new_port_sortino/replace_port_sortino)**(1/2)-1)*100
+
     return CWARP
 
-def cwarp_additive_sortino(new_asset,replace_port,
-                                risk_free_rate=0,
-                                financing_rate=0,
-                                weight_asset=0.25,
-                                weight_replace_port=1,
-                                periodicity=252):
-    # new_asset = returns of the asset you are thinking of adding to your portfolio
-    # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
-    # risk_free_rate = Tbill rate
-    # financing_rate = portfolio margin/borrowing cost to layer new asset on top of prevailing portfolio
-    # weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
-    # weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
-    # periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count
-
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+def cwarp_additive_sortino(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+    """Cole Win Above Replacement Portolio (CWARP) Sortino +: Isolates new investment effect on total portfolio Sortino Ratio, which is a portion of the holistic CWARP score.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate (annualized)
+    financing_rate = portfolio margin/borrowing cost (annualized) to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annualized financing rate into appropriate value for provided periodicity
+    # risk_free_rate will be converted appropriately in respective Sortino and RMDD calcs
     financing_rate=(1+financing_rate)**(1/periodicity)-1
 
-    replace_port_ex_rf=replace_port-risk_free_rate
-    new_port_returns_ex_rf=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)-risk_free_rate
-    new_port=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)
-
     #Calculate Replacement Portfolio Sortino Ratio
-    neg_ndx = np.where(replace_port<0)[0]
-    replace_port_sortino=np.mean(replace_port_ex_rf)/(np.std(replace_port[neg_ndx]))*np.sqrt(periodicity)
-
-    #Calculate Replacement Portfolio Return to Max Drawdown
-    maxdd_replace_port=min((((replace_port + 1).cumprod()-(replace_port + 1).cumprod().cummax())/(replace_port + 1).cumprod().cummax()).dropna())
-    replace_port_return_maxdd= ((1+np.mean(replace_port_ex_rf))**(periodicity)-1)/abs(maxdd_replace_port)
+    replace_port_sortino = sortino_ratio(replace_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Calculate New Portfolio Sortino Ratio
-    neg_ndx_new = np.where(new_port<0)[0]
-    new_port_sortino=np.mean(new_port_returns_ex_rf)/(np.std(new_port[neg_ndx_new]))*np.sqrt(periodicity)
-
-    #Calculate New Portfolio Return to Max Drawdown
-    maxdd_new_port=min((((new_port + 1).cumprod()-(new_port + 1).cumprod().cummax())/(new_port + 1).cumprod().cummax()).dropna())
-    new_port_return_maxdd= ((1+np.mean(new_port_returns_ex_rf))**(periodicity)-1)/abs(maxdd_new_port)
+    new_port = (new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
+    new_port_sortino = sortino_ratio(new_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Final calculation
     CWARP_add_sortino=((new_port_sortino/replace_port_sortino)-1)*100
@@ -218,58 +251,77 @@ def cwarp_additive_sortino(new_asset,replace_port,
     return CWARP_add_sortino
 
 def cwarp_additive_ret_maxdd(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
-    # new_asset = returns of the asset you are thinking of adding to your portfolio
-    # replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
-    # risk_free_rate = Tbill rate
-    # financing_rate = portfolio margin/borrowing cost to layer new asset on top of prevailing portfolio
-    # weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
-    # weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
-    # periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count
-
-    risk_free_rate=(1+risk_free_rate)**(1/periodicity)-1
+    """Cole Win Above Replacement Portolio (CWARP) Ret to Max DD +: Isolates new investment effect on total portfolio Return to MAXDD, which is a portion of the holistic CWARP score.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate (annualized)
+    financing_rate = portfolio margin/borrowing cost (annualized) to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annualized financing rate into appropriate value for provided periodicity
+    # risk_free_rate will be converted appropriately in respective Sortino and RMDD calcs
     financing_rate=(1+financing_rate)**(1/periodicity)-1
 
-    replace_port_ex_rf=replace_port-risk_free_rate
-    new_port_returns_ex_rf=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)-risk_free_rate
-    new_port=(new_asset-financing_rate)*weight_asset+(replace_port*weight_replace_port)
-
-    #Calculate Replacement Portfolio Sortino Ratio
-    neg_ndx = np.where(replace_port<0)[0]
-    replace_port_sortino=np.mean(replace_port_ex_rf)/(np.std(replace_port[neg_ndx]))*np.sqrt(periodicity)
-
     #Calculate Replacement Portfolio Return to Max Drawdown
-    maxdd_replace_port=min((((replace_port + 1).cumprod()-(replace_port + 1).cumprod().cummax())/(replace_port + 1).cumprod().cummax()).dropna())
-    replace_port_return_maxdd= ((1+np.mean(replace_port_ex_rf))**(periodicity)-1)/abs(maxdd_replace_port)
-
-    #Calculate New Portfolio Sortino Ratio
-    neg_ndx_new = np.where(new_port<0)[0]
-    new_port_sortino=np.mean(new_port_returns_ex_rf)/(np.std(new_port[neg_ndx_new]))*np.sqrt(periodicity)
+    replace_port_return_maxdd = return_maxdd_ratio(replace_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Calculate New Portfolio Return to Max Drawdown
-    maxdd_new_port=min((((new_port + 1).cumprod()-(new_port + 1).cumprod().cummax())/(new_port + 1).cumprod().cummax()).dropna())
-    new_port_return_maxdd= ((1+np.mean(new_port_returns_ex_rf))**(periodicity)-1)/abs(maxdd_new_port)
+    new_port = (new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
+    new_port_return_maxdd = return_maxdd_ratio(new_port, risk_free=risk_free_rate, periodicity=periodicity)
 
     #Final calculation
     CWARP_add_ret_maxdd=((new_port_return_maxdd/replace_port_return_maxdd)-1)*100
+
     return CWARP_add_ret_maxdd
 
 def cwarp_port_return(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+    """Cole Win Above Replacement Portolio (CWARP) Portfolio Return: Returns of the aggregate portfolio after a new asset is financed and layered on top of the replacement portfolio.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate (annualized)
+    financing_rate = portfolio margin/borrowing cost (annualized) to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annual financing based on periodicity
     financing_rate=((financing_rate+1)**(1/periodicity)-1)
-    risk_free_rate=((risk_free_rate+1)**(1/periodicity)-1)
-    new_port=(new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port-risk_free_rate
-    out=(np.mean(new_port)+1)**(periodicity)-1
+
+    # compose new portfolio
+    new_port=(new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
+
+    # calculate annualized return of new portfolio and subtract risk-free rate
+    out = annualized_return(new_port, periodicity=periodicity) - risk_free_rate
     return out
 
 def cwarp_port_risk(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+    """Cole Win Above Replacement Portolio (CWARP) Portfolio Risk: Volatility of the aggregate portfolio after a new asset is financed and layered on top of the replacement portfolio.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate (annualized)
+    financing_rate = portfolio margin/borrowing cost (annualized) to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annual financing and risk free rates based on periodicity
     financing_rate=((financing_rate+1)**(1/periodicity)-1)
     risk_free_rate=((risk_free_rate+1)**(1/periodicity)-1)
+    # compose new portfolio
     new_port=(new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
-    neg_ndx = np.where(new_port<0)[0]
-    out=np.std(new_port[neg_ndx])*np.sqrt(periodicity)
-    return out
+    # calculated target downside deviation (TDD)
+    tdd = target_downside_deviation(new_port, MAR=0)*np.sqrt(periodicity)
+    return tdd
 
 def cwarp_new_port_data(new_asset,replace_port,risk_free_rate=0,financing_rate=0,weight_asset=0.25,weight_replace_port=1,periodicity=252):
+    """Cole Win Above Replacement Portolio (CWARP) return stream: Return series after a new asset is financed and layered on top of the replacement portfolio.
+    new_asset = returns of the asset you are thinking of adding to your portfolio
+    replace_port = returns of your pre-existing portfolio (e.g. S&P 500 Index, 60/40 Stock-Bond Portfolio)
+    risk_free_rate = Tbill rate
+    financing_rate = portfolio margin/borrowing cost to layer new asset on top of prevailing portfolio (e.g. LIBOR + 60bps). No financing rate is reasonable for derivate overlay products.
+    weight_asset = % weight you wish to overlay for the new asset on top of the previous portfolio, 25% overlay allocation is standard
+    weight_replace_port = % weight of the replacement portfolio, 100% pre-existing portfolio value is standard
+    periodicity = the frequency of the data you are sampling, typically 12 for monthly or 252 for trading day count"""
+    # convert annual financing based on periodicity
     financing_rate=((financing_rate+1)**(1/periodicity)-1)
-    risk_free_rate=((risk_free_rate+1)**(1/periodicity)-1)
     new_port=(new_asset-financing_rate)*weight_asset+replace_port*weight_replace_port
     return new_port
