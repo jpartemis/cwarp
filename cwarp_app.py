@@ -1,10 +1,12 @@
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning) 
 from cwarp_defs import *
 from io import BytesIO
 import datetime
 import seaborn as sns
-
 import streamlit as st
-
+from streamlit import caching
+caching.clear_cache()
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 def render_latex(formula, fontsize=12, dpi=300):
