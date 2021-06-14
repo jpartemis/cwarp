@@ -1,5 +1,5 @@
 import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 from cwarp_defs import *
 from io import BytesIO
 import datetime
@@ -63,9 +63,7 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
     st.markdown(body,unsafe_allow_html=True)
     formula = render_latex(r'\chi/100 = \sqrt{ \left( \frac{S_n}{S_p} \right) \left(  \frac{ RMDD_n }{ RMDD_p}  \right) }-1.')
     st.markdown("""Using the boxes below, you can calculate CWARP\u2122 based on your own portfolio for prospective assets,
-    so long as a data provider has history on your holdings. Just edit the example entries.
-    
-    Please note that the asset with the shortest period of historical data will constrain the timeframes of the other assets being compared. For more advanced capabilities, please download the [code from github](https://github.com/jpartemis/cwarp) and alter as necessary.
+    so long as a data provider has history on your holdings. Just edit the example entries. Please note that the asset with the shortest period of historical data will constrain the timeframes of the other assets being compared. For more advanced capabilities, please download the [code from github](https://github.com/jpartemis/cwarp) and alter as necessary.
     """)
 
     try:
@@ -102,7 +100,7 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
             st.write("*** WARNING ***")
             st.write("Your portfolio has a very short (post-pandemic) history of available data.")
             st.write("This will lead to poor CWARP for diversifiers.")
-            
+
         replacement_port.name=replacement_port_name
         risk_ret_df=pd.DataFrame(index=['Start_Date','End_Date','CWARP','+Sortino','+Ret_To_MaxDD','Sharpe','Sortino','Max_DD'],columns=ticker_list)
         new_risk_ret_df=pd.DataFrame(index=['Return','Vol','Sharpe','Sortino','Max_DD','Ret_To_MaxDD',f'CWARP_{round(100*weight_asset)}%_asset'],columns=ticker_list)
