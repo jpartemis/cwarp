@@ -94,9 +94,12 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         replacement_port = replacement_port_list[0]*(replacement_port_w[0]/sum(replacement_port_w))
         for k in range(1,len(replacement_port_list)):
             replacement_port += replacement_port_list[k]*(replacement_port_w[k]/sum(replacement_port_w))
-        # with st.spinner("Pulling data..."):
-        #     replacement_port=sum([retrieve_yhoo_data(sym, start_date, end_date)*replacement_port_w[i] for i, sym in enumerate(replacement_port_tik)])
-
+        first_date_of_rp = replacement_port.dropna().index.min()
+        if first_date_of_rp > datetime.date(2020,3,1):
+            st.write("*** WARNING ***")
+            st.write("Your portfolio has a very short (post-pandemic) history of available data.")
+            st.write("This will lead to poor CWARP for diversifiers.")
+            
         replacement_port.name=replacement_port_name
         risk_ret_df=pd.DataFrame(index=['Start_Date','End_Date','CWARP','+Sortino','+Ret_To_MaxDD','Sharpe','Sortino','Max_DD'],columns=ticker_list)
         new_risk_ret_df=pd.DataFrame(index=['Return','Vol','Sharpe','Sortino','Max_DD','Ret_To_MaxDD',f'CWARP_{round(100*weight_asset)}%_asset'],columns=ticker_list)
