@@ -47,13 +47,13 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    body = """<p class="small-font">ANY AND ALL CONTENTS OF THIS STREAMLIT APPLICATION ARE FOR INFORMATIONAL PURPOSES ONLY. NEITHER THE INFORMATION PROVIDED HEREIN NOR ANY OTHER DATA OR RESOURCES RELATED TO CWARP\u2122 SHOULD BE CONSTRUED AS A GUARANTEE OF ANY PORTFOLIO PERFORMANCE USING CWARPTM OR ANY OTHER METRIC DEVELOPED OR DISCUSSED HEREIN. ANY INDIVIDUAL WHO USES, REFERENCES OR OTHERWISE ACCESSES THE WEBPAGE OR ANY OTHER DATA, THEORY, FORMULA, OR ANY OTHER INFORMATION CREATED, USED, OR REFERENCED BY ARTEMIS DOES SO AT THEIR OWN RISK AND, BY ACCESSING ANY SUCH INFORMATION, INDEMNIFIES AND HOLDS HARMLESS ARTEMIS CAPITAL MANAGEMENT LP, ARTEMIS CAPITAL ADVISERS LP, AND ALL OF ITS AFFILIATES (TOGETHER, “ARTEMIS”) AGAINST ANY LOSS OF CAPITAL THEY MAY OR MAY NOT INCUR BY UTILIZING SUCH DATA. ARTEMIS DOES NOT BEAR ANY RESPONSIBILITY FOR THE OUTCOME OF ANY PORTFOLIO NOT DIRECTLY OWNED AND/OR MANAGED BY ARTEMIS.</p>
+    body = """<p class="small-font">ANY AND ALL CONTENTS OF THIS STREAMLIT APPLICATION ARE FOR INFORMATIONAL PURPOSES ONLY. NEITHER THE INFORMATION PROVIDED HEREIN NOR ANY OTHER DATA OR RESOURCES RELATED TO CWARP\u2122 SHOULD BE CONSTRUED AS A GUARANTEE OF ANY PORTFOLIO PERFORMANCE USING CWARP\u2122 OR ANY OTHER METRIC DEVELOPED OR DISCUSSED HEREIN. ANY INDIVIDUAL WHO USES, REFERENCES OR OTHERWISE ACCESSES THE WEBPAGE OR ANY OTHER DATA, THEORY, FORMULA, OR ANY OTHER INFORMATION CREATED, USED, OR REFERENCED BY ARTEMIS DOES SO AT THEIR OWN RISK AND, BY ACCESSING ANY SUCH INFORMATION, INDEMNIFIES AND HOLDS HARMLESS ARTEMIS CAPITAL MANAGEMENT LP, ARTEMIS CAPITAL ADVISERS LP, AND ALL OF ITS AFFILIATES (TOGETHER, “ARTEMIS”) AGAINST ANY LOSS OF CAPITAL THEY MAY OR MAY NOT INCUR BY UTILIZING SUCH DATA. ARTEMIS DOES NOT BEAR ANY RESPONSIBILITY FOR THE OUTCOME OF ANY PORTFOLIO NOT DIRECTLY OWNED AND/OR MANAGED BY ARTEMIS.</p>
 
 CWARP\u2122, like the Sharpe or Sortino Ratios, is a number that quantifies the attractiveness of a prospective asset.
 Like the Sharpe Ratio, the more positive the CWARP\u2122 the more attractive an asset.
 
-Sharpe Ratios have the problem that the best portfolio isn't always built from a combination of assets which have the best Sortino ratios.
-In fact it is possible that between assets with three Sortino Ratios $S_a < S_b < S_c$, the best portfolio is built from
+Sharpe Ratios have the problem that the best portfolio isn't always built from a combination of assets which have the best Sharpe Ratios.
+In fact it is possible that between assets with three Sharpe Ratios $S_a < S_b < S_c$, the best portfolio is built from
 the two weaker assets $S_a, S_b$. Reliance on this simple number has lead to underdiversified, fragile portfolios.
 The whole is not the sum of the parts.
 
@@ -63,7 +63,10 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
     st.markdown(body,unsafe_allow_html=True)
     formula = render_latex(r'\chi/100 = \sqrt{ \left( \frac{S_n}{S_p} \right) \left(  \frac{ RMDD_n }{ RMDD_p}  \right) }-1.')
     st.markdown("""Using the boxes below, you can calculate CWARP\u2122 based on your own portfolio for prospective assets,
-    so long as a data provider has history on your holdings. Just edit the example entries.""")
+    so long as a data provider has history on your holdings. Just edit the example entries.
+    
+    Please note that the asset with the shortest period of historical data will constrain the timeframes of the other assets being compared. For more advanced capabilities, please download the [code from github](https://github.com/jpartemis/cwarp) and alter as necessary.
+    """)
 
     try:
         start_date = st.sidebar.date_input("Start Date", datetime.date(2007,7,1)).strftime("%Y-%m-%d")
