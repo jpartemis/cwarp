@@ -15,7 +15,11 @@ If the app is not working when you try to access it, we welcome you to run the s
 
 ## How
 
-Most fool proof way to run the project locally is to either download the `.zip` or `git clone https://github.com/jpartemis/cwarp.git` from this repo, make sure you have both `python3` and `pip`  installed and set in your system PATH.
+Most fool proof way to run the project locally is to either download the `.zip` or 
+```
+git clone https://github.com/jpartemis/cwarp.git
+```
+from this repo, make sure you have both `python3` and `pip`  installed and set in your system PATH.
 
 ### Install
 
