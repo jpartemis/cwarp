@@ -95,7 +95,7 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         for k in range(1,len(replacement_port_list)):
             replacement_port += replacement_port_list[k]*(replacement_port_w[k]/sum(replacement_port_w))
         first_date_of_rp = replacement_port.dropna().index.min()
-        if first_date_of_rp > datetime.date(2020,3,1):
+        if first_date_of_rp.date() > datetime.date(2020,3,1):
             st.write("*** WARNING ***")
             st.write("Your portfolio has a very short (post-pandemic) history of available data.")
             st.write("This will lead to poor CWARP for diversifiers.")
