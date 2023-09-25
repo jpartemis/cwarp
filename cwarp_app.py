@@ -5,8 +5,7 @@ from io import BytesIO
 import datetime
 import seaborn as sns
 import streamlit as st
-from streamlit import caching
-caching.clear_cache()
+# st.cache().clear()
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 def render_latex(formula, fontsize=12, dpi=300):
@@ -96,7 +95,7 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         for k in range(1,len(replacement_port_list)):
             replacement_port += replacement_port_list[k]*(replacement_port_w[k]/sum(replacement_port_w))
         first_date_of_rp = replacement_port.dropna().index.min()
-        if first_date_of_rp > datetime.date(2020,3,1):
+        if first_date_of_rp.date() > datetime.date(2020,3,1):
             st.write("*** WARNING ***")
             st.write("Your portfolio has a very short (post-pandemic) history of available data.")
             st.write("This will lead to poor CWARP for diversifiers.")
@@ -171,8 +170,9 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         first_col = new_risk_ret_df.pop(replacement_port_name)
         new_risk_ret_df.insert(0, replacement_port_name, first_col)
         # display dataframes
-        st.write(risk_ret_df.sort_values(by='CWARP', axis=1, ascending=False).style.set_precision(3))
-        st.write(new_risk_ret_df.sort_values(by='Sharpe', axis=1, ascending=False).style.set_precision(3))
+        pd.options.display.precision = 3
+        st.write(risk_ret_df.sort_values(by='CWARP', axis=1, ascending=False))
+        st.write(new_risk_ret_df.sort_values(by='Sharpe', axis=1, ascending=False))
         vol_arr=new_risk_ret_df.loc['Vol',new_risk_ret_df.columns[1:]]
         ret_arr=new_risk_ret_df.loc['Return',new_risk_ret_df.columns[1:]]
         sharpe_arr=new_risk_ret_df.loc['Sharpe',new_risk_ret_df.columns[1:]]
@@ -203,8 +203,8 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         st.pyplot(p)
 
         #plot the putative returns of the best CWARP asset, and the worst.
-        best_div = risk_ret_df.loc['CWARP'].astype(float).idxmax(axis='columns')
-        worst_div = risk_ret_df.loc['CWARP'].astype(float).idxmin(axis='columns')
+        best_div = risk_ret_df.loc['CWARP'].astype(float).idxmax(axis=0)
+        worst_div = risk_ret_df.loc['CWARP'].astype(float).idxmin(axis=0)
         st.write(f"Best CWarp: {best_div.upper()} Worst CWarp {worst_div.upper()}")
 
         f = plt.figure(figsize=(8,6))
