@@ -170,8 +170,9 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         first_col = new_risk_ret_df.pop(replacement_port_name)
         new_risk_ret_df.insert(0, replacement_port_name, first_col)
         # display dataframes
-        st.write(risk_ret_df.sort_values(by='CWARP', axis=1, ascending=False).style.set_precision(3))
-        st.write(new_risk_ret_df.sort_values(by='Sharpe', axis=1, ascending=False).style.set_precision(3))
+        pd.options.display.precision = 3
+        st.write(risk_ret_df.sort_values(by='CWARP', axis=1, ascending=False))
+        st.write(new_risk_ret_df.sort_values(by='Sharpe', axis=1, ascending=False))
         vol_arr=new_risk_ret_df.loc['Vol',new_risk_ret_df.columns[1:]]
         ret_arr=new_risk_ret_df.loc['Return',new_risk_ret_df.columns[1:]]
         sharpe_arr=new_risk_ret_df.loc['Sharpe',new_risk_ret_df.columns[1:]]
