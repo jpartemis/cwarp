@@ -5,7 +5,7 @@ from io import BytesIO
 import datetime
 import seaborn as sns
 import streamlit as st
-st.cache().clear_cache()
+st.cache().clear()
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 def render_latex(formula, fontsize=12, dpi=300):
