@@ -203,8 +203,8 @@ Here RMDD is the Return to Max-Drawdown Ratio, and n and p represent the new and
         st.pyplot(p)
 
         #plot the putative returns of the best CWARP asset, and the worst.
-        best_div = risk_ret_df.loc['CWARP'].astype(float).idxmax(axis='columns')
-        worst_div = risk_ret_df.loc['CWARP'].astype(float).idxmin(axis='columns')
+        best_div = risk_ret_df.loc['CWARP'].astype(float).idxmax(axis=0)
+        worst_div = risk_ret_df.loc['CWARP'].astype(float).idxmin(axis=0)
         st.write(f"Best CWarp: {best_div.upper()} Worst CWarp {worst_div.upper()}")
 
         f = plt.figure(figsize=(8,6))
